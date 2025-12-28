@@ -17,6 +17,7 @@ services:
       - "3000:3000"
     volumes:
       - .:/workspace
+      - /workspace/backend/node_modules
     working_dir: /workspace/backend
     command: npm run dev
     depends_on:
@@ -28,6 +29,7 @@ services:
       - "5173:5173"
     volumes:
       - .:/workspace
+      - /workspace/frontend/node_modules
     working_dir: /workspace/frontend
     command: npm run dev -- --host --port 5173
     depends_on:

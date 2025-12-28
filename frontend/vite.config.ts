@@ -6,6 +6,16 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true,
+    strictPort: true,
+    watch: {
+      usePolling: true,
+      interval: 100
+    },
+    hmr: {
+      protocol: 'ws',
+      host: 'localhost',
+      port: 5173
+    },
     proxy: {
       '/health': 'http://localhost:3000'
     }

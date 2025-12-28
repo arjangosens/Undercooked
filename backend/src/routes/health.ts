@@ -6,7 +6,7 @@ const router = Router();
 router.get('/', async (_req, res) => {
   try {
     await connectToDatabase();
-    res.json({ status: 'ok', db: 'connected' });
+    res.json({ status: 'ok', db: 'connected!' });
   } catch (e) {
     res.status(503).json({ status: 'error', db: 'unavailable' });
   }
