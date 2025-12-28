@@ -9,9 +9,13 @@ export default function App() {
       .catch(() => setStatus('error'));
   }, []);
   return (
-    <div style={{ fontFamily: 'system-ui', padding: 24 }}>
-      <h1>Undercooked Display</h1>
-      <p>Backend health: {status}</p>
+    <div className="min-h-screen bg-slate-100 flex items-center justify-center p-6">
+      <div className="max-w-md w-full rounded-xl bg-white shadow-sm p-6">
+        <h1 className="text-2xl font-bold text-slate-800">Undercooked</h1>
+        <p className="mt-2 text-slate-700">
+          Backend health: <span className="font-mono">{status}</span>
+        </p>
+      </div>
     </div>
   );
 }
