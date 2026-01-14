@@ -1,4 +1,4 @@
-export const API_BASE = import.meta.env.VITE_API_BASE || '';
+export const API_BASE = (import.meta.env.VITE_API_BASE as string) || '';
 
 export async function apiGet(path: string) {
   const res = await fetch(`${API_BASE}${path}`);

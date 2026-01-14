@@ -8,6 +8,17 @@ services:
     volumes:
       - mongo-data:/data/db
 
+  mongo-express:
+    image: mongo-express:1.0.2
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    ports:
+      - "8081:8081"
+    environment:
+      - ME_CONFIG_MONGODB_URL=mongodb://mongo:27017/undercooked
+      - ME_CONFIG_BASICAUTH=false
+
   backend:
     build: ./backend
     environment:

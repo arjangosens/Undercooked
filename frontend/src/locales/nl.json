@@ -1,0 +1,63 @@
+{
+  "game": {
+    "title": "Undercooked",
+    "waiting": "Wachten op start...",
+    "playing": "Aan het spelen!",
+    "ended": "Ronde voorbij!",
+    "countdown": "Start in",
+    "score": "Punten",
+    "strikes": "Levens",
+    "orders": "Orders",
+    "orderTime": "Tijd over",
+    "elapsedTime": "Tijd verstreken",
+    "ingredients": "Ingrediënten",
+    "noOrders": "Geen huidige orders",
+    "completedOrders": "Voltooide orders",
+    "totalOrders": "Totaal gespawned",
+    "livesLeft": "Levens over",
+    "timeLeft": "Tijd resterend"
+  },
+  "gameMaster": {
+    "title": "Game manager",
+    "selectTeam": "Team selecteren",
+    "startRound": "Ronde starten",
+    "endRound": "Ronde beëindigen",
+    "fulfillOrder": "Order indienen",
+    "fulfill": "Indienen",
+    "noTeams": "Geen teams beschikbaar",
+    "loading": "Laden...",
+    "currentTeam": "Huidige team",
+    "currentScore": "Huidige punten",
+    "currentStrikes": "Huidige levens",
+    "activeOrders": "Actieve orders"
+  },
+  "team": {
+    "name": "Teamnaam",
+    "add": "Team toevoegen",
+    "edit": "Bewerken",
+    "delete": "Verwijderen",
+    "choose": "Kies team"
+  },
+  "leaderboard": {
+    "title": "Scorebord",
+    "rank": "Plaats",
+    "team": "Team",
+    "score": "Punten",
+    "orders": "Orders",
+    "completed": "Voltooid",
+    "date": "Datum",
+    "delete": "Verwijderen",
+    "noResults": "Geen resultaten",
+    "confirm": "Weet je het zeker?",
+    "deleted": "Verwijderd"
+  },
+  "common": {
+    "loading": "Laden...",
+    "error": "Er is een fout opgetreden",
+    "retry": "Opnieuw proberen",
+    "back": "Terug",
+    "close": "Sluiten",
+    "save": "Opslaan",
+    "cancel": "Annuleren"
+  }
+}

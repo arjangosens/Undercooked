@@ -1,11 +1,11 @@
 import { Router } from 'express';
-import { connectToDatabase } from '../db/connect';
+import { connectDB } from '../db/connect';
 
 const router = Router();
 
 router.get('/', async (_req, res) => {
   try {
-    await connectToDatabase();
+    await connectDB();
     res.json({ status: 'ok', db: 'connected!' });
   } catch (e) {
     res.status(503).json({ status: 'error', db: 'unavailable' });
