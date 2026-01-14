@@ -36,6 +36,9 @@ export function GameMasterControl({ onGameStateChange }: GameMasterControlProps)
   const [editingTeam, setEditingTeam] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
   const [gameState, setGameState] = useState<GameState | null>(null);
+  const [renderOrders, setRenderOrders] = useState<
+    Array<{ order: GameState['orders'][number]; leaving: boolean }>
+  >([]);
   const [sessionId] = useState<string>(() => {
     const id = sessionStorage.getItem('sessionId');
     if (id) return id;
@@ -75,6 +78,33 @@ export function GameMasterControl({ onGameStateChange }: GameMasterControlProps)
     };
   }, [onGameStateChange]);
 
+  // Keep renderOrders in sync for entry/exit animations
+  useEffect(() => {
+    if (!gameState) return;
+    setRenderOrders((prev) => {
+      const incomingIds = new Set(gameState.orders.map((o) => o.id));
+
+      const leaving = prev
+        .filter((item) => !incomingIds.has(item.order.id))
+        .map((item) => ({ ...item, leaving: true }));
+
+      const staying = gameState.orders.map((order) => {
+        const existing = prev.find((p) => p.order.id === order.id && !p.leaving);
+        return { order, leaving: existing ? existing.leaving : false };
+      });
+
+      return [...staying, ...leaving];
+    });
+  }, [gameState]);
+
+  useEffect(() => {
+    if (!renderOrders.some((o) => o.leaving)) return;
+    const timer = setTimeout(() => {
+      setRenderOrders((prev) => prev.filter((p) => !p.leaving));
+    }, 320);
+    return () => clearTimeout(timer);
+  }, [renderOrders]);
+
   const refreshTeams = async () => {
     const teamsData = await gameApi.getTeams();
     setTeams(teamsData);
@@ -103,6 +133,13 @@ export function GameMasterControl({ onGameStateChange }: GameMasterControlProps)
     } catch (error) {
       console.error('Error ending round:', error);
     }
+  };
+
+  const formatElapsed = (seconds?: number) => {
+    if (seconds === undefined || seconds === null) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   const handleFulfillOrder = async (orderId: string) => {
@@ -264,10 +301,14 @@ export function GameMasterControl({ onGameStateChange }: GameMasterControlProps)
       {/* Active Game Controls */}
       {gameState && (
         <div className="bg-white rounded-lg shadow-lg p-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
             <div className="bg-blue-50 p-4 rounded-lg">
               <div className="text-gray-600 text-sm">{t('gameMaster.currentTeam')}</div>
               <div className="text-2xl font-bold text-blue-600">{gameState.currentTeamName}</div>
+            </div>
+            <div className="bg-indigo-50 p-4 rounded-lg">
+              <div className="text-gray-600 text-sm">{t('gameMaster.status', 'Ronde status')}</div>
+              <div className="text-xl font-bold text-indigo-600 capitalize">{gameState.status}</div>
             </div>
             <div className="bg-yellow-50 p-4 rounded-lg">
               <div className="text-gray-600 text-sm">{t('gameMaster.currentScore')}</div>
@@ -290,41 +331,71 @@ export function GameMasterControl({ onGameStateChange }: GameMasterControlProps)
                 {t('game.livesLeft', 'Lives left')}: {Math.max(0, 3 - gameState.strikes)}/3
               </div>
             </div>
+            <div className="bg-slate-50 p-4 rounded-lg">
+              <div className="text-gray-600 text-sm">{t('game.elapsedTime')}</div>
+              <div className="text-2xl font-bold text-slate-700">{formatElapsed(gameState.elapsedTime)}</div>
+            </div>
           </div>
 
           <div className="mb-8">
             <div className="text-xl font-bold text-gray-700 mb-4">{t('gameMaster.activeOrders')}</div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {gameState.orders.map((order) => (
-                <button
-                  key={order.id}
-                  onClick={() => handleFulfillOrder(order.id)}
-                  className="p-4 bg-green-50 border-2 border-green-400 rounded-lg hover:bg-green-100 transition-all text-left"
-                >
+              {renderOrders.map(({ order, leaving }) => {
+                const remaining = Math.max(0, Math.ceil((order.expiresAt - Date.now()) / 1000));
+                const isExpiring = remaining <= 5;
+                const isWarning = !isExpiring && remaining <= 15;
+                const cardTone = isExpiring
+                  ? 'bg-red-50 border-red-400'
+                  : isWarning
+                  ? 'bg-amber-50 border-amber-400'
+                  : 'bg-green-50 border-green-400';
+                const meterTone = isExpiring
+                  ? 'bg-red-500'
+                  : isWarning
+                  ? 'bg-amber-500'
+                  : 'bg-green-500';
+
+                return (
+                  <button
+                    key={order.id}
+                    onClick={() => handleFulfillOrder(order.id)}
+                    className={`p-4 rounded-lg hover:bg-opacity-90 transition-all text-left transform hover:-translate-y-1 hover:shadow-lg ${
+                      leaving ? 'animate-fadeOutDown' : 'animate-fadeInUp'
+                    } ${isExpiring ? 'animate-shake' : ''} ${cardTone}`}
+                  >
                   <div className="flex items-center gap-3 mb-2">
                     <div className="text-3xl">{order.dishIcon || '🍽️'}</div>
                     <div className="font-bold text-gray-700">{order.dishName}</div>
                   </div>
-                  <div className="text-3xl mb-2">
+                  <div className="text-4xl mb-2">
                     {order.ingredients.map((ing) => INGREDIENT_ICONS[ing] || '❓').join(' ')}
                   </div>
-                  <div className="text-sm text-gray-700 mb-2">
+                  <div className="text-lg text-gray-800 font-semibold mb-2">
                     {order.ingredients
                       .map((ing) => INGREDIENT_NAMES[ing] || ing)
                       .join(' • ')}
                   </div>
-                  <div className="text-sm text-gray-600 mb-3">
-                    {order.points} {t('game.score')} · {t('game.timeLeft', 'Time left')}: {Math.max(
-                      0,
-                      Math.ceil((order.expiresAt - Date.now()) / 1000)
-                    )}
-                    s
+                  <div className="w-full h-3 rounded-full bg-white/60 overflow-hidden mb-2 border border-green-200">
+                    {(() => {
+                      const total = Math.max(1, Math.round((order.expiresAt - order.createdAt) / 1000));
+                      const progress = Math.max(0, Math.min(100, (remaining / total) * 100));
+                      return (
+                        <div
+                          className={`h-full ${meterTone}`}
+                          style={{ width: `${progress}%`, transition: 'width 0.25s linear' }}
+                        />
+                      );
+                    })()}
+                  </div>
+                  <div className="text-sm text-gray-700 mb-3">
+                    {order.points} {t('game.score')} · {t('game.timeLeft', 'Time left')}: {remaining}s
                   </div>
                   <div className="bg-green-500 text-white py-2 px-3 rounded text-center font-bold">
                     {t('gameMaster.fulfill')}
                   </div>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
             </div>
           </div>
 

@@ -1,7 +1,7 @@
 {
   "game": {
     "title": "Undercooked",
-    "waiting": "Wachten op start...",
+    "waiting": "Wachten op het startsignaal...",
     "playing": "Aan het spelen!",
     "ended": "Ronde voorbij!",
     "countdown": "Start in",
@@ -27,6 +27,7 @@
     "noTeams": "Geen teams beschikbaar",
     "loading": "Laden...",
     "currentTeam": "Huidige team",
+    "status": "Ronde status",
     "currentScore": "Huidige punten",
     "currentStrikes": "Huidige levens",
     "activeOrders": "Actieve orders"

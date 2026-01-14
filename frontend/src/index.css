@@ -2,3 +2,46 @@
 
 /* Optional globals */
 html, body, #root { height: 100%; }
+
+@keyframes fadeInUp {
+	from {
+		opacity: 0;
+		transform: translateY(12px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@keyframes fadeOutDown {
+	from {
+		opacity: 1;
+		transform: translateY(0);
+	}
+	to {
+		opacity: 0;
+		transform: translateY(10px);
+	}
+}
+
+.animate-fadeInUp {
+	animation: fadeInUp 0.35s ease-out;
+}
+
+.animate-fadeOutDown {
+	animation: fadeOutDown 0.28s ease-in forwards;
+}
+
+@keyframes shake {
+	0% { transform: translateX(0); }
+	20% { transform: translateX(-2px); }
+	40% { transform: translateX(2px); }
+	60% { transform: translateX(-2px); }
+	80% { transform: translateX(2px); }
+	100% { transform: translateX(0); }
+}
+
+.animate-shake {
+	animation: shake 0.25s linear infinite;
+}

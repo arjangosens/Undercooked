@@ -15,7 +15,7 @@ const ORDER_DURATION = 30; // seconds
 const INITIAL_ORDER_DELAY = 6; // seconds before first order
 const COUNTDOWN_SECONDS = 10; // countdown before round starts
 const MIN_ORDERS_CONCURRENT = 1;
-const MAX_ORDERS_CONCURRENT = 3; // upper cap; we ramp up over time
+const MAX_ORDERS_CONCURRENT = 6; // upper cap; we ramp up over time
 
 export class GameLogicService {
   private wsHandler: WebSocketHandler;
@@ -82,6 +82,11 @@ export class GameLogicService {
         clearInterval(timer);
         gameState.status = 'playing';
         gameState.countdownRemaining = undefined;
+        // Reset elapsed time baseline to the moment play starts
+        const startAt = new Date();
+        round.startedAt = startAt as any;
+        gameState.elapsedTime = 0;
+        void Round.findByIdAndUpdate(gameState.roundId, { startedAt: startAt });
         // Start the round timer (updates elapsed time)
         this.startRoundTimer(sessionId, gameState, round);
         // Start generating orders after initial delay
@@ -165,6 +170,9 @@ export class GameLogicService {
     const round = await Round.findByIdAndUpdate(gameState.roundId, {
       endedAt: new Date(),
     });
+
+    // Clean up orders for this round from the database
+    await OrderModel.deleteMany({ roundId: gameState.roundId });
 
     this.wsHandler.broadcastGameState(gameState);
     this.wsHandler.clearGameState(sessionId);
@@ -314,7 +322,7 @@ export class GameLogicService {
     currentOrderCount: number
   ): 'easy' | 'medium' | 'hard' {
     // Base mixes keep earlier burgers in rotation while slowly biasing to harder ones over longer rounds
-    let mix = { easy: 0.7, medium: 0.25, hard: 0.05 }; // first 5 minutes
+    let mix = { easy: 0.75, medium: 0.25, hard: 0 }; // first 5 minutes, no hard
 
     if (elapsedSeconds >= 1200) {
       // 20m+
@@ -330,10 +338,12 @@ export class GameLogicService {
       mix = { easy: 0.45, medium: 0.4, hard: 0.15 };
     }
 
-    // Slightly boost difficulty when multiple orders are already active; cap to avoid hard-only
-    const pressure = Math.max(0, currentOrderCount - 1);
-    mix.hard += Math.min(0.15, pressure * 0.03);
-    mix.medium += Math.min(0.1, pressure * 0.02);
+    // Slightly boost difficulty when multiple orders are already active; only after 5 minutes
+    if (elapsedSeconds >= 300) {
+      const pressure = Math.max(0, currentOrderCount - 1);
+      mix.hard += Math.min(0.15, pressure * 0.03);
+      mix.medium += Math.min(0.1, pressure * 0.02);
+    }
 
     // Normalize and pick
     const total = mix.easy + mix.medium + mix.hard;
@@ -358,9 +368,12 @@ export class GameLogicService {
    * Gradually increase concurrent orders
    */
   private getConcurrentLimit(elapsedSeconds: number): number {
-    if (elapsedSeconds < 300) return 1; // first 5 minutes
-    if (elapsedSeconds < 600) return 2; // 5-10 minutes
-    return MAX_ORDERS_CONCURRENT;
+    if (elapsedSeconds < 120) return 1; // first 2 minutes
+    if (elapsedSeconds < 300) return 2; // 2-5 minutes
+    if (elapsedSeconds < 600) return 3; // 5-10 minutes
+    if (elapsedSeconds < 900) return 4; // 10-15 minutes
+    if (elapsedSeconds < 1200) return 5; // 15-20 minutes
+    return MAX_ORDERS_CONCURRENT; // 6 after 20 minutes
   }
 
   /**
