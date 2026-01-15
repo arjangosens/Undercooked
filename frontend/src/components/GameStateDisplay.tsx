@@ -252,9 +252,6 @@ export function GameStateDisplay({ gameState }: GameStateDisplayProps) {
           <div className="text-5xl font-bold text-emerald-600">
             {displayState.completedOrders}
           </div>
-          <div className="text-sm text-emerald-700 mt-2">
-            {t('gameMaster.activeOrders')}: {displayState.orderCount}
-          </div>
         </div>
         <div className="bg-red-50 border-4 border-red-400 rounded-lg shadow-lg p-8">
           <div className="text-2xl text-red-700 mb-4">{t('game.strikes')}</div>
