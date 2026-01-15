@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GameState, GameEvent } from '../types/game';
 import { socketClient } from '../api/socket';
+import { soundManager } from '../utils/soundManager';
 
 const INGREDIENT_ICONS: Record<string, string> = {
   BROODJE: '🍞',
@@ -34,14 +35,36 @@ export function GameStateDisplay({ gameState }: GameStateDisplayProps) {
   const [renderOrders, setRenderOrders] = useState<
     Array<{ order: GameState['orders'][number]; leaving: boolean }>
   >([]);
+  const [stopCountdownSound, setStopCountdownSound] = useState<(() => void) | null>(null);
+  const countdownSoundStartedRef = useRef(false);
 
   // Subscribe to live game state via WebSocket so the display updates even if opened separately
   useEffect(() => {
     socketClient.connect();
     const handler = (state: GameState) => setLiveState(state);
     socketClient.on(GameEvent.STATE_UPDATED, handler);
+
+    // Sound effects for order events
+    socketClient.on(GameEvent.ORDER_ADDED, () => {
+      console.log('📢 Event: ORDER_ADDED');
+      soundManager.play('order_created');
+    });
+
+    socketClient.on(GameEvent.ORDER_FULFILLED, () => {
+      console.log('📢 Event: ORDER_FULFILLED');
+      soundManager.play('order_fulfilled');
+    });
+
+    socketClient.on(GameEvent.ORDER_FAILED, () => {
+      console.log('📢 Event: ORDER_FAILED');
+      soundManager.play('order_failed');
+    });
+
     return () => {
       socketClient.off(GameEvent.STATE_UPDATED, handler);
+      socketClient.off(GameEvent.ORDER_ADDED, () => {});
+      socketClient.off(GameEvent.ORDER_FULFILLED, () => {});
+      socketClient.off(GameEvent.ORDER_FAILED, () => {});
     };
   }, []);
 
@@ -66,15 +89,42 @@ export function GameStateDisplay({ gameState }: GameStateDisplayProps) {
 
     const interval = setInterval(() => {
       const newTimeRemaining: { [key: string]: number } = {};
+      
       displayState.orders.forEach((order) => {
         const remaining = Math.max(0, Math.ceil((order.expiresAt - Date.now()) / 1000));
         newTimeRemaining[order.id] = remaining;
       });
+      
       setTimeRemaining(newTimeRemaining);
     }, 100);
 
     return () => clearInterval(interval);
   }, [displayState]);
+
+  // Handle countdown sound
+  useEffect(() => {
+    if (!displayState) return;
+
+    if (displayState.status === 'countdown') {
+      // Start countdown sound if not already started
+      if (!countdownSoundStartedRef.current) {
+        console.log('🔊 Starting countdown sound');
+        countdownSoundStartedRef.current = true;
+        const cleanupFn = soundManager.startCountdownSound();
+        setStopCountdownSound(() => cleanupFn);
+      }
+    } else {
+      // Stop countdown sound if status changed away from countdown
+      if (countdownSoundStartedRef.current) {
+        console.log('🔇 Stopping countdown sound');
+        countdownSoundStartedRef.current = false;
+        if (stopCountdownSound) {
+          stopCountdownSound();
+          setStopCountdownSound(null);
+        }
+      }
+    }
+  }, [displayState?.status, stopCountdownSound]);
 
   // Track render orders so we can animate entry/exit
   useEffect(() => {
@@ -97,18 +147,44 @@ export function GameStateDisplay({ gameState }: GameStateDisplayProps) {
     });
   }, [displayState]);
 
-  // Remove leaving cards after animation
+  // Clean up leaving orders after animation completes (300ms)
   useEffect(() => {
-    if (!renderOrders.some((o) => o.leaving)) return;
+    if (renderOrders.length === 0) return;
+    
+    const hasLeavingOrders = renderOrders.some((item) => item.leaving);
+    if (!hasLeavingOrders) return;
+
     const timer = setTimeout(() => {
-      setRenderOrders((prev) => prev.filter((p) => !p.leaving));
-    }, 320);
+      setRenderOrders((prev) => prev.filter((item) => !item.leaving));
+    }, 300);
+
     return () => clearTimeout(timer);
   }, [renderOrders]);
 
+  // Cleanup sounds on unmount or when game ends
+  useEffect(() => {
+    return () => {
+      if (stopCountdownSound) {
+        stopCountdownSound();
+      }
+      soundManager.stopCountdownSound();
+    };
+  }, [stopCountdownSound]);
+
+  // Stop countdown sound when game ends
+  useEffect(() => {
+    if (displayState?.status === 'ended' || displayState?.status === 'waiting') {
+      if (stopCountdownSound) {
+        stopCountdownSound();
+        setStopCountdownSound(null);
+      }
+      soundManager.stopCountdownSound();
+    }
+  }, [displayState?.status, stopCountdownSound]);
+
   if (!displayState || displayState.status === 'waiting') {
     return (
-      <div className="w-full h-screen bg-gradient-to-br from-amber-50 to-orange-100 flex items-center justify-center">
+      <div className="w-full h-screen bg-gradient-to-br from-amber-50 to-orange-100 flex items-center justify-center relative">
         <div className="text-center">
           <div className="text-7xl mb-6">🍔</div>
           <h1 className="text-5xl font-bold text-orange-700 mb-4">Undercooked</h1>
@@ -120,7 +196,7 @@ export function GameStateDisplay({ gameState }: GameStateDisplayProps) {
 
   if (displayState.status === 'countdown') {
     return (
-      <div className="w-full h-screen bg-gradient-to-br from-yellow-50 to-orange-100 flex items-center justify-center">
+      <div className="w-full h-screen bg-gradient-to-br from-yellow-50 to-orange-100 flex items-center justify-center relative">
         <div className="text-center">
           <div className="text-7xl mb-6">⏳</div>
           <h1 className="text-5xl font-bold text-orange-700 mb-4">{t('game.countdown')}</h1>

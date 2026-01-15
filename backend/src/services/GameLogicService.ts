@@ -3,7 +3,7 @@
  * Implements SOLID principles with dependency injection
  */
 
-import { GameState, Order } from '../websocket/events';
+import { GameState, Order, GameEvent } from '../websocket/events';
 import { Round, IRound } from '../models/Round';
 import { Order as OrderModel, IOrder } from '../models/Order';
 import { Dish } from '../models/Dish';
@@ -117,12 +117,6 @@ export class GameLogicService {
     gameState.completedOrders += 1;
     gameState.orders = gameState.orders.filter((o) => o.id !== orderId);
 
-    // Update database
-    await OrderModel.findByIdAndUpdate(orderId, { status: 'fulfilled' });
-    const round = await Round.findByIdAndUpdate(gameState.roundId, {
-      $inc: { score: order.points, completedOrders: 1 },
-    });
-
     // Clear order timer
     const timerKey = `order-${orderId}`;
     if (this.orderTimers.has(timerKey)) {
@@ -130,8 +124,15 @@ export class GameLogicService {
       this.orderTimers.delete(timerKey);
     }
 
-    // Broadcast update
+    // Broadcast immediately after removing order
     this.wsHandler.broadcastGameState(gameState);
+    this.wsHandler.getIO().emit(GameEvent.ORDER_FULFILLED);
+
+    // Update database asynchronously
+    await OrderModel.findByIdAndUpdate(orderId, { status: 'fulfilled' });
+    await Round.findByIdAndUpdate(gameState.roundId, {
+      $inc: { score: order.points, completedOrders: 1 },
+    });
   }
 
   /**
@@ -281,7 +282,8 @@ export class GameLogicService {
     // Set timer for order expiration
     this.setOrderExpirationTimer(sessionId, order);
 
-    // Broadcast
+    // Broadcast events
+    this.wsHandler.getIO().emit(GameEvent.ORDER_ADDED);
     this.wsHandler.broadcastGameState(gameState);
 
     // Schedule next order
@@ -300,14 +302,22 @@ export class GameLogicService {
       const gameState = this.wsHandler.getGameState(sessionId);
       if (!gameState) return;
 
-      // Remove order from queue
+      // Check if order still exists
+      const orderExists = gameState.orders.some((o) => o.id === order.id);
+      if (!orderExists) return;
+
+      // Remove order from queue first and broadcast immediately
       gameState.orders = gameState.orders.filter((o) => o.id !== order.id);
+      this.wsHandler.broadcastGameState(gameState);
 
       // Mark as expired in DB
       await OrderModel.findByIdAndUpdate(order.id, { status: 'expired' });
 
       // Add strike
       await this.addStrike(sessionId);
+
+      // Emit event
+      this.wsHandler.getIO().emit(GameEvent.ORDER_FAILED);
     }, timeUntilExpiry);
 
     const timerKey = `order-${order.id}`;
